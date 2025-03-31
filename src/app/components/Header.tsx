@@ -2,7 +2,7 @@
 
 export default function Header() {
     return(
-        <div>
+        <div className="w-full p-5 ">
             <div>
                 <div>Maia</div>
                 <div>
