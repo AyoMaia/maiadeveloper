@@ -239,26 +239,271 @@ pm2 save
 
 ---
 
-## Atualizar o Projeto
+## Como Atualizar o Projeto Manualmente
 
-Quando você fizer alterações no código e precisar atualizar:
+Esta seção explica como atualizar seus projetos quando você fizer alterações no código da sua máquina local e subir para o GitHub.
 
-### Para o projeto Landing (branch main)
+### Fluxo Completo de Atualização
+
+O processo funciona assim:
+
+1. **Na sua máquina local** → Você edita o código
+2. **Na sua máquina local** → Você faz commit e push para o GitHub
+3. **No servidor** → Você puxa as alterações do GitHub
+4. **No servidor** → Você reconstrói o projeto
+5. **No servidor** → Você reinicia o processo PM2
+
+---
+
+### Atualizar Landing (Branch Main - Porta 3000)
+
+**Cenário:** Você fez alterações no código e fez push para a branch `main` no GitHub.
+
+#### Passo 1: Conectar ao servidor
+```bash
+ssh seu-usuario@seu-servidor
+```
+
+#### Passo 2: Navegar até o diretório do projeto
 ```bash
 cd /var/www/landing
+```
+
+#### Passo 3: Verificar branch atual
+```bash
+git branch
+```
+Deve mostrar `* main` (com asterisco indicando que está na branch main)
+
+#### Passo 4: Puxar alterações do GitHub
+```bash
 git pull origin main
+```
+
+**O que esse comando faz:**
+- Busca as últimas alterações da branch `main` no GitHub
+- Mescla essas alterações com o código local do servidor
+
+**Resultado esperado:**
+```
+Updating a300e99..b234567
+Fast-forward
+ src/app/components/Hero.tsx | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+```
+
+#### Passo 5: Instalar novas dependências (se houver)
+```bash
 npm install
+```
+
+**Quando usar:** Sempre rode este comando, mesmo que não tenha adicionado novas dependências. Ele é rápido se nada mudou.
+
+#### Passo 6: Fazer o build de produção
+```bash
 npm run build
+```
+
+**O que esse comando faz:**
+- Compila todo o código React/Next.js
+- Otimiza para produção
+- Gera a pasta `.next` com arquivos prontos para produção
+
+**Tempo aproximado:** 5-15 segundos
+
+#### Passo 7: Reiniciar o processo PM2
+```bash
 pm2 restart landing
 ```
 
-### Para o projeto Landing-dev (branch dev)
+**O que esse comando faz:**
+- Para o processo antigo
+- Inicia um novo processo com o código atualizado
+- Mantém o mesmo nome e configurações
+
+**Resultado esperado:**
+```
+[PM2] Applying action restartProcessId on app [landing](ids: [ 0 ])
+[PM2] [landing](0) ✓
+```
+
+#### Passo 8: Verificar se está funcionando
+```bash
+# Ver status
+pm2 list
+
+# Ver logs em tempo real
+pm2 logs landing
+
+# Testar acesso
+curl http://localhost:3000
+```
+
+---
+
+### Atualizar Landing-Dev (Branch Dev - Porta 3001)
+
+**Cenário:** Você fez alterações no código e fez push para a branch `dev` no GitHub.
+
+#### Passo 1: Conectar ao servidor
+```bash
+ssh seu-usuario@seu-servidor
+```
+
+#### Passo 2: Navegar até o diretório do projeto
 ```bash
 cd /var/www/landing-dev
+```
+
+#### Passo 3: Verificar branch atual
+```bash
+git branch
+```
+Deve mostrar `* dev` (com asterisco indicando que está na branch dev)
+
+#### Passo 4: Puxar alterações do GitHub
+```bash
 git pull origin dev
+```
+
+**O que esse comando faz:**
+- Busca as últimas alterações da branch `dev` no GitHub
+- Mescla essas alterações com o código local do servidor
+
+#### Passo 5: Instalar novas dependências
+```bash
+npm install
+```
+
+#### Passo 6: Fazer o build de produção
+```bash
+npm run build
+```
+
+#### Passo 7: Reiniciar o processo PM2
+```bash
+pm2 restart landing-dev
+```
+
+#### Passo 8: Verificar se está funcionando
+```bash
+# Ver status
+pm2 list
+
+# Ver logs em tempo real
+pm2 logs landing-dev
+
+# Testar acesso
+curl http://localhost:3001
+```
+
+---
+
+### Comandos Rápidos (Copiar e Colar)
+
+Se você já entendeu o processo, use estes comandos rápidos:
+
+#### Atualizar Landing (main)
+```bash
+cd /var/www/landing && \
+git pull origin main && \
+npm install && \
+npm run build && \
+pm2 restart landing && \
+pm2 logs landing --lines 20
+```
+
+#### Atualizar Landing-Dev (dev)
+```bash
+cd /var/www/landing-dev && \
+git pull origin dev && \
+npm install && \
+npm run build && \
+pm2 restart landing-dev && \
+pm2 logs landing-dev --lines 20
+```
+
+**Explicação do `&&`:**
+- Executa os comandos em sequência
+- Se um comando falhar, os seguintes não são executados
+- Útil para garantir que cada etapa foi bem-sucedida
+
+---
+
+### Erros Comuns Durante Atualização
+
+#### Erro 1: "You have unstaged changes"
+```bash
+error: Your local changes to the following files would be overwritten by merge:
+    src/app/page.tsx
+```
+
+**Solução:**
+```bash
+# Ver quais arquivos foram modificados
+git status
+
+# Se quiser DESCARTAR as mudanças locais
+git reset --hard
+
+# Depois tente o pull novamente
+git pull origin main
+```
+
+#### Erro 2: "Build failed"
+```bash
+Error: Command failed: npm run build
+```
+
+**Solução:**
+```bash
+# Ver detalhes do erro
+npm run build
+
+# Se for erro de dependências
+rm -rf node_modules package-lock.json
 npm install
 npm run build
-pm2 restart landing-dev
+```
+
+#### Erro 3: "PM2 process not found"
+```bash
+[PM2][ERROR] Process landing not found
+```
+
+**Solução:**
+```bash
+# Listar processos
+pm2 list
+
+# Se não existir, inicie novamente
+pm2 start npm --name "landing" -- run start
+
+# Ou use o ecosystem (para landing-dev)
+pm2 start ecosystem.config.js
+```
+
+---
+
+### Diferença Entre as Versões
+
+Após seguir este guia, você terá:
+
+| Característica | Landing (main) | Landing-Dev (dev) |
+|---------------|----------------|-------------------|
+| Porta | 3000 | 3001 |
+| Branch Git | main | dev |
+| Processo PM2 | landing | landing-dev |
+| Uso | Produção | Desenvolvimento |
+| Visual | Badge "PROD" azul | Badge "DEV" verde/lime |
+
+Para ver as diferenças:
+```bash
+# Acessar landing
+curl http://localhost:3000 | grep -i "prod\|dev"
+
+# Acessar landing-dev
+curl http://localhost:3001 | grep -i "prod\|dev"
 ```
 
 ---
